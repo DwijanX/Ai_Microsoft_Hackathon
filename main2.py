@@ -1,11 +1,11 @@
-from scapy.all import sniff, IP, TCP, UDP, Raw
+from scapy.all import sniff, IP, TCP, UDP, Raw,IFACES
 from collections import defaultdict
 import time
 import json
 from datetime import datetime
 import requests
 import re
-
+import base64
 class SimpleNetworkMonitor:
     def __init__(self):
         self.flows = defaultdict(lambda: {'packets': 0, 'bytes': 0})
@@ -78,6 +78,9 @@ class SimpleNetworkMonitor:
             raw_data = packet[Raw].load
             try:
                 decoded_data = raw_data.decode('utf-8', errors='ignore')
+
+                hex_data = raw_data.hex()  # For hexadecimal representation
+                base64_data = base64.b64encode(raw_data).decode('utf-8')
 
                 print("new package"+"-"*50)
 
@@ -192,7 +195,10 @@ class SimpleNetworkMonitor:
         print(f"Starting monitoring on {interface}...")
         print("Monitoring for suspicious activities...")
         capture = sniff(prn=self.packet_callback, store=0, iface=interface)
+    def show_interfaces(self):
+        print(IFACES.show())
 
 if __name__ == "__main__":
     monitor = SimpleNetworkMonitor()
-    monitor.start_monitoring(interface="en0")
+    monitor.show_interfaces()
+    #monitor.start_monitoring(interface=r'Realtek PCIe GbE Family Controller')
