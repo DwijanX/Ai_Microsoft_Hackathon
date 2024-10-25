@@ -1,0 +1,211 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <title>Web Socket Client Example</title>
+        <script type="text/javascript">
+        window.onload = function () {
+            var conn;
+            var log = document.getElementById("log");
+            var msg = document.getElementById("msg");
+
+            function appendLog(item) {
+            var doScroll = log.scrollTop === log.scrollHeight - log.clientHeight;
+            log.appendChild(item);
+            if (doScroll) {
+                log.scrollTop = log.scrollHeight - log.clientHeight;
+            }
+            }
+
+            document.getElementById("connect").onclick = function () {
+            var server = document.getElementById("wsURL");
+            conn = new WebSocket(server.value);
+            if (window["WebSocket"]) {
+                if (conn) {
+                conn.onopen = function (evt) {
+                    document.getElementById("disconnect").disabled = false;
+                    document.getElementById("sendMsg").disabled = false;
+                    document.getElementById("connect").disabled = true;
+                    document.getElementById("status").innerHTML =
+                    "Connection opened";
+                };
+                conn.onclose = function (evt) {
+                    document.getElementById("status").innerHTML =
+                    "Connection closed";
+                    document.getElementById("connect").disabled = false;
+                };
+                conn.onmessage = function (evt) {
+                    var messages = evt.data.split("\n");
+                    for (var i = 0; i < messages.length; i++) {
+                    try {
+                        var data = JSON.parse(messages[i]); // Parse JSON data
+
+                        // Extract and format the information you want to display
+                        var sourceIP = data.input["Source IP"];
+                        var destinationIP = data.input["Destination IP"];
+                        var protocol = data.input["Flow Data"].protocol;
+                        var decision = data.output.decision;
+                        var category = data.output.category;
+                        var payload=data.input.Payload
+                        var timestamp=data.input.Timestamp
+                        // Create a formatted message
+                        var formattedMessage = `
+                            Timestamp: ${timestamp}
+                            Source IP: ${sourceIP}
+                            Destination IP: ${destinationIP}
+                            Protocol: ${protocol}
+                            Decision: ${decision}
+                            Category: ${category}
+                            Reasons:${data.output.reasons}
+                        `;
+                        var messageDiv=document.createElement("div");
+                        messageDiv.innerHTML=formattedMessage;
+                        var payloadDiv=document.createElement("div");
+                        payloadDiv.innerHTML="Payload \n"+payload
+                        // Display the formatted message in the response box
+                        var item = document.createElement("pre");
+                        console.log(decision);
+                        item.className = "card "+( decision=="NORMAL"?"bg-success":"bg-warning");
+                        
+                        item.innerHTML=messageDiv.outerHTML+payloadDiv.outerHTML;
+                        appendLog(item);
+                    } catch (error) {
+                        console.error("Error parsing JSON:", error);
+                    }
+                    }
+                };
+                }
+            } else {
+                var item = document.createElement("pre");
+                item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
+                appendLog(item);
+            }
+            };
+
+            document.getElementById("disconnect").onclick = function () {
+            conn.close();
+            document.getElementById("sendMsg").disabled = true;
+            document.getElementById("connect").disabled = false;
+            document.getElementById("disconnect").disabled = true;
+            document.getElementById("status").innerHTML = "Connection closed";
+            };
+
+            document.getElementById("form").onsubmit = function () {
+            if (!conn) {
+                return false;
+            }
+            if (!msg.value) {
+                return false;
+            }
+            conn.send(msg.value);
+            var item = document.createElement("pre");
+            item.classList.add("subscribeMsg");
+            item.innerHTML = msg.value;
+            appendLog(item);
+            return false;
+            };
+        };
+        </script>
+        <style type="text/css">
+        html {
+            overflow: hidden;
+        }
+
+        body {
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background: gray;
+        }
+        .bg-success{
+            background-color: #28a745 !important;
+        }
+        .bg-warning{
+            background-color: #d13335 !important;
+            color: white;
+        }
+        #log {
+            background: white;
+            margin: 0;
+            padding: 0.5em 0.5em 0.5em 0.5em;
+            top: 1.5em;
+            left: 0.5em;
+            right: 0.5em;
+            bottom: 3em;
+            overflow: auto;
+            position: absolute;
+            height: 530px;
+        }
+
+        #form {
+            padding: 0 0.5em 0 0.5em;
+            margin: 0;
+            position: absolute;
+            bottom: 3em;
+            top: 5em;
+            left: 8px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .card {
+            display: inline-flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    padding: 1em;
+    margin-bottom: 1em;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    font-family: Arial, sans-serif;
+  }
+
+  .card h3 {
+    margin-top: 0;
+    font-size: 1.1em;
+    color: #495057;
+  }
+
+  .card p {
+    margin: 0.3em 0;
+    color: #6c757d;
+  }
+        #serverLocation {
+            padding-top: 0.3em;
+        }
+
+        #requestSection {
+            height: 38px;
+        }
+
+        #responseMsgSection {
+            height: 570px;
+            position: relative;
+        }
+        </style>
+    </head>
+    <body>
+        <fieldset id="serverLocation">
+        <legend>Server Location</legend>
+        <div>
+            <input type="button" id="connect" value="Connect" />
+            <input type="button" id="disconnect" value="Disconnect" disabled />
+            <input
+            type="text"
+            id="wsURL"
+            value="ws://localhost:8080"
+            size="64"
+            />
+            <span id="status"></span>
+        </div>
+        </fieldset>
+        
+        </fieldset>
+        <fieldset id="responseMsgSection">
+        <legend>Response</legend>
+        <div id="log"></div>
+        </fieldset>
+    </body>
+    </html>

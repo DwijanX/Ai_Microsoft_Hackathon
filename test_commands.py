@@ -75,7 +75,6 @@ def send_test_traffic(port=8888):
                         headers={
                             'User-Agent': 'Test-Traffic-Generator',
                             'X-Test-Type': payload_data['type'],
-                            'Content-Type': 'text/plain'
                         }
                     )
                     print(f"Sent payload, server responded with: {response.status_code}")

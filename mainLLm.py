@@ -1,14 +1,14 @@
 from scapy.all import sniff, IP, TCP, UDP, Raw, IFACES
 from collections import defaultdict
-import time
 import json
 from datetime import datetime
 import requests
-import re
 
 class SimpleNetworkMonitor:
-    def __init__(self):
+    def __init__(self, url="ws://localhost:8080"):
         self.flows = defaultdict(lambda: {'packets': 0, 'bytes': 0})
+        self.url = url
+        self.ws = None
         
     def packet_callback(self, packet):
         if IP in packet:
@@ -90,9 +90,9 @@ class SimpleNetworkMonitor:
             print(f"Error processing packet: {str(e)}")
             
     def send_to_model(self, packet_info):
-        url = "http://127.0.0.1/query"
+        url = "https://crn290tw-5000.brs.devtunnels.ms//query"
         jsonReq={
-            "query":packet_info
+            "query":str(packet_info)
         }
         response = requests.post(url, json=jsonReq)
         if response.status_code == 200:
@@ -115,13 +115,45 @@ class SimpleNetworkMonitor:
             print(f"Error from model server: {response.status_code} - {response.text}")
         print("Model response:", response.text)
         print("Packet Info:", packet_info)
+
+
+
+    def sendToFront(self, message):
+        try:
+            # Parse the incoming message to ensure it's valid JSON
+            parsed_object = json.loads(message)
+            
+            # Send POST request
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(
+                self.url, 
+                json=parsed_object,  # requests will automatically handle the JSON serialization
+                headers=headers
+            )
+            
+            # Handle the response
+            if response.status_code == 200:
+                print(f"Success! Server responded with: {response.json()}")
+                return response.json()
+            else:
+                print(f"Error: Server responded with status code {response.status_code}")
+                print(f"Response: {response.text}")
+                
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON message: {e}")
+        except requests.RequestException as e:
+            print(f"Error sending request: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+
         
     def start_monitoring(self, interface="eth0"):
         try:
             print(f"Starting monitoring on {interface}...")
             print("Monitoring for suspicious activities...")
             # Add filter to capture only IP packets
-            sniff(prn=self.packet_callback, store=0, iface=interface, filter="ip")
+            sniff(prn=self.packet_callback, store=0, iface=interface)
+            #sniff(prn=self.packet_callback, store=0, iface=interface, filter="ip")
         except Exception as e:
             print(f"Error starting monitoring: {str(e)}")
             
@@ -132,6 +164,7 @@ class SimpleNetworkMonitor:
             print(f"Error showing interfaces: {str(e)}")
 
 if __name__ == "__main__":
-    monitor = SimpleNetworkMonitor()
+    monitor = SimpleNetworkMonitor("https://n8pz5kv7-8080.brs.devtunnels.ms/analyze")
     #monitor.show_interfaces()
-    monitor.start_monitoring(interface=r'Realtek PCIe GbE Family Controller')
+    #monitor.start_monitoring(interface=r'Realtek PCIe GbE Family Controller')
+    monitor.sendToFront("{\"decision\": \"NORMAL\", \"category\": \"LDAP Authentication\", \"reasons\": [\"Internal network communication\", \"Standard LDAP query\", \"Normal bind request\"]}")
