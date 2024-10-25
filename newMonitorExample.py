@@ -7,9 +7,11 @@ import json
 import argparse
 import binascii
 from threading import Event
+from collections import defaultdict
 
 class NetworkMonitor:
     def __init__(self, interface="eth0", packet_limit=None):
+        self.flows = defaultdict(lambda: {'packets': 0, 'bytes': 0})
         self.interface = interface
         self.packet_limit = packet_limit
         self.packet_count = 0
@@ -48,16 +50,7 @@ class NetworkMonitor:
                 
                 if payload:
                     decoded_payload = self.decode_payload(payload)
-                    
-                    # Identify common protocols by port
-                    if dst_port == 80 or dst_port == 443:
-                        return {"type": "HTTP/HTTPS", "data": decoded_payload}
-                    elif dst_port == 22:
-                        return {"type": "SSH", "data": "SSH Traffic"}
-                    elif dst_port == 53:
-                        return {"type": "DNS", "data": decoded_payload}
-                    else:
-                        return {"type": "TCP", "data": decoded_payload}
+                    return decoded_payload
                 
                 return {"type": "TCP", "data": "No payload"}
             
@@ -109,16 +102,17 @@ class NetworkMonitor:
         if not packet_info["protocol"]:
             return None
 
+        flow_key = f"{packet[IP].src}:{packet_info['src_port']}->{packet[IP].dst}:{packet_info['dst_port']}"
         flow_data = {
             "input": {
                 "Source IP": packet[IP].src,
                 "Destination IP": packet[IP].dst,
                 "Source Port": packet_info["src_port"],
                 "Destination Port": packet_info["dst_port"],
-                "Flow Key": f"{packet[IP].src}:{packet_info['src_port']}->{packet[IP].dst}:{packet_info['dst_port']}",
+                "Flow Key": flow_key,
                 "Timestamp": datetime.now().isoformat(),
                 "Flow Data": {
-                    "packets": 1,
+                    "packets": self.flows[flow_key]['packets'],
                     "bytes": packet_info["length"],
                     "protocol": packet_info["protocol"],
                     "flags": packet_info.get("flags", {})
@@ -134,8 +128,10 @@ class NetworkMonitor:
         """Process each captured packet."""
         if self.stop_sniffing.is_set():
             return
-
-        self.packet_count += 1
+        packet_info = self.get_packet_info(packet)
+        flow_key = f"{packet[IP].src}:{packet_info['src_port']}->{packet[IP].dst}:{packet_info['dst_port']}"
+        self.flows[flow_key]['packets'] += 1
+        self.flows[flow_key]['bytes'] += len(packet)
         formatted_data = self.format_packet_for_llm(packet)
         
         if formatted_data:
@@ -150,7 +146,7 @@ class NetworkMonitor:
         """Start the packet capture process."""
         print(f"Starting network monitoring on interface {self.interface}")
         print("Press Ctrl+C to stop monitoring...")
-        interface="Realtek PCIe GbE Family Controller"#"Software Loopback Interface 1"#self.interface
+        interface="lo0"#"Software Loopback Interface 1"#self.interface
         try:
             scapy.sniff(
                 iface=interface,#self.interface,
