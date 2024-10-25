@@ -66,7 +66,21 @@ class SimpleNetworkMonitor:
                             ]
                         }
                     }
-                    self.send_to_model(packet_info)
+                    packetInput={
+                            "Source IP": packet[IP].src,
+                            "Destination IP": packet[IP].dst,
+                            "Source Port": src_port,
+                            "Destination Port": dst_port,
+                            "Flow Key": flow_key,
+                            "Timestamp": datetime.now().isoformat(),
+                            "Flow Data": {
+                                "packets": self.flows[flow_key]['packets'],
+                                "bytes": self.flows[flow_key]['bytes'],
+                                "protocol": protocol
+                            },
+                            "Payload": decoded_data,
+                        }
+                    self.send_to_model(packetInput)
                     #print(f"Captured {protocol} packet: {flow_key}")
                     
                 except UnicodeDecodeError:
@@ -76,9 +90,30 @@ class SimpleNetworkMonitor:
             print(f"Error processing packet: {str(e)}")
             
     def send_to_model(self, packet_info):
-        #url = "http://"
-        #response = requests.post(url, json=packet_info)
-        #print("Model response:", response.text)
+        url = "http://127.0.0.1/query"
+        jsonReq={
+            "query":packet_info
+        }
+        response = requests.post(url, json=jsonReq)
+        if response.status_code == 200:
+            try:
+                model_response = response.json()
+
+                # Remove <|eot_id|> if it exists
+                cleaned_response = model_response.replace("<|eot_id|>", "")
+                
+                # Convert the string to a JSON object
+                model_response_obj = json.loads(cleaned_response)
+                
+                print("Cleaned Model response:", model_response_obj)
+
+
+
+            except json.JSONDecodeError:
+                print("Error decoding JSON response from model")
+        else:
+            print(f"Error from model server: {response.status_code} - {response.text}")
+        print("Model response:", response.text)
         print("Packet Info:", packet_info)
         
     def start_monitoring(self, interface="eth0"):
