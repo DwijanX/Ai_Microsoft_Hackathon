@@ -333,7 +333,7 @@ class NetworkMonitor:
         """Start the packet capture process."""
         print(f"Starting network monitoring on interface {self.interface}")
         print("Press Ctrl+C to stop monitoring...")
-        interface=r'Realtek PCIe GbE Family Controller'#="Software Loopback Interface 1"#self.interface
+        interface="en0"#r'Realtek PCIe GbE Family Controller'#="Software Loopback Interface 1"#self.interface
         try:
             scapy.sniff(
                 iface=interface,#self.interface,
@@ -362,34 +362,34 @@ def main():
 
     interface = args.interface or scapy.conf.iface
     monitor = NetworkMonitor(interface=interface, packet_limit=args.limit)
-    monitor.start_monitoring()
+    # monitor.start_monitoring()
 
 
-    # testMessage={
-    #    "input": {
-    #   "Source IP": "192.168.1.110",
-    #   "Destination IP": "192.168.1.5",
-    #   "Source Port": 49255,
-    #   "Destination Port": 389,
-    #   "Flow Key": "192.168.1.110->192.168.1.5",
-    #   "Timestamp": "2024-10-24T14:40:00.345678",
-    #   "Flow Data": { "packets": 6, "bytes": 840, "protocol": "TCP" },
-    #   "Payload": "LDAP bind request for user=jsmith"
-    # },
-    # "output": {
-    #   "decision": "NORMAL",
-    #   "category": "LDAP Authentication",
-    #   "reasons": [
-    #     "Internal LDAP query",
-    #     "Standard bind request",
-    #     "Expected packet size"
-    #   ]
-    # }
-    # }
+    testMessage={
+       "input": {
+      "Source IP": "192.168.1.110",
+      "Destination IP": "192.168.1.5",
+      "Source Port": 49255,
+      "Destination Port": 389,
+      "Flow Key": "192.168.1.110->192.168.1.5",
+      "Timestamp": "2024-10-24T14:40:00.345678",
+      "Flow Data": { "packets": 6, "bytes": 840, "protocol": "TCP" },
+      "Payload": "LDAP bind request for user=jsmith"
+    },
+    "output": {
+      "decision": "NORMAL",
+      "category": "LDAP Authentication",
+      "reasons": [
+        "Internal LDAP query",
+        "Standard bind request",
+        "Expected packet size"
+      ]
+    }
+    }
     try:
         while True:
             time.sleep(10)
-            #monitor.sendToFront(testMessage["input"],testMessage["output"])
+            monitor.sendToFront(testMessage["input"],testMessage["output"])
 
 
     except KeyboardInterrupt:

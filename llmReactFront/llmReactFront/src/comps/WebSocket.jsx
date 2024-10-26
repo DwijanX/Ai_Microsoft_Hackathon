@@ -83,6 +83,8 @@ const styles = `
     border-radius: 8px;
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+    color:black
   }
 
   .card-normal {
