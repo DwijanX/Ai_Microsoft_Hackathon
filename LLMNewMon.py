@@ -233,8 +233,7 @@ class NetworkMonitor:
             return None
 
         flow_key = f"{packet[IP].src}:{packet_info['src_port']}->{packet[IP].dst}:{packet_info['dst_port']}"
-        flow_data = {
-            "input": {
+        flow_data = { 
                 "Source IP": packet[IP].src,
                 "Destination IP": packet[IP].dst,
                 "Source Port": packet_info["src_port"],
@@ -245,11 +244,8 @@ class NetworkMonitor:
                     "packets": self.flows[flow_key]['packets'],
                     "bytes": packet_info["length"],
                     "protocol": packet_info["protocol"],
-                    "flags": packet_info.get("flags", {})
                 },
                 "Payload": self.format_payload(packet)
-            },
-            "instruction": "Analyze the network traffic pattern for suspicious behavior"
         }
         
         return flow_data
@@ -266,6 +262,7 @@ class NetworkMonitor:
                 model_response = response.json()
 
                 cleanedJson=model_response["response"].replace("'", "\"")
+    
                 responseJson=json.loads(cleanedJson)
 
                 self.sendToFront(packet_info,responseJson)
@@ -311,15 +308,22 @@ class NetworkMonitor:
         """Process each captured packet."""
         if self.stop_sniffing.is_set():
             return
+        # Check if packet has IP layer before processing
+        if IP not in packet:
+            logger.debug("Skipping non-IP packet")
+            return
         packet_info = self.get_packet_info(packet)
         flow_key = f"{packet[IP].src}:{packet_info['src_port']}->{packet[IP].dst}:{packet_info['dst_port']}"
         self.flows[flow_key]['packets'] += 1
         self.flows[flow_key]['bytes'] += len(packet)
         formatted_data = self.format_packet_for_llm(packet)
         
-        if formatted_data:
+        if formatted_data and formatted_data["Payload"] != "No payload":
             print("\nCaptured Packet:")
             print(json.dumps(formatted_data, indent=2))
+
+            print("\nSending to model for analysis...")
+            self.send_to_model(formatted_data)
             print("\n" + "-"*50)
 
         if self.packet_limit and self.packet_count >= self.packet_limit:
@@ -329,12 +333,14 @@ class NetworkMonitor:
         """Start the packet capture process."""
         print(f"Starting network monitoring on interface {self.interface}")
         print("Press Ctrl+C to stop monitoring...")
-        interface="lo0"#"Software Loopback Interface 1"#self.interface
+        interface=r'Realtek PCIe GbE Family Controller'#="Software Loopback Interface 1"#self.interface
         try:
             scapy.sniff(
                 iface=interface,#self.interface,
                 prn=self.packet_callback,
-                stop_filter=lambda _: self.stop_sniffing.is_set()
+                stop_filter=lambda _: self.stop_sniffing.is_set(),
+                filter="ip",
+                store=0
             )
         except KeyboardInterrupt:
             print("\nStopping network monitoring...")
@@ -357,6 +363,29 @@ def main():
     interface = args.interface or scapy.conf.iface
     monitor = NetworkMonitor(interface=interface, packet_limit=args.limit)
     monitor.start_monitoring()
+
+
+    # testMessage={
+    #    "input": {
+    #   "Source IP": "192.168.1.110",
+    #   "Destination IP": "192.168.1.5",
+    #   "Source Port": 49255,
+    #   "Destination Port": 389,
+    #   "Flow Key": "192.168.1.110->192.168.1.5",
+    #   "Timestamp": "2024-10-24T14:40:00.345678",
+    #   "Flow Data": { "packets": 6, "bytes": 840, "protocol": "TCP" },
+    #   "Payload": "LDAP bind request for user=jsmith"
+    # },
+    # "output": {
+    #   "decision": "NORMAL",
+    #   "category": "LDAP Authentication",
+    #   "reasons": [
+    #     "Internal LDAP query",
+    #     "Standard bind request",
+    #     "Expected packet size"
+    #   ]
+    # }
+    # }
     try:
         while True:
             time.sleep(10)

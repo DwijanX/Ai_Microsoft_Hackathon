@@ -55,6 +55,7 @@
                             Protocol: ${protocol}
                             Decision: ${decision}
                             Category: ${category}
+                            flowData: ${data.input["Flow Data"]["packets"]} packets | ${data.input["Flow Data"]["bytes"]} bytes
                             Reasons:${data.output.reasons}
                         `;
                         var messageDiv=document.createElement("div");
